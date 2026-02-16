@@ -24,20 +24,15 @@ DEEP DIVE HANDLING:
 - If the system notes "DEEP DIVE mode", focus 100% on the conceptual intuition of the specific term clicked.`;
 
 /**
- * Main tutoring function using gemini-3-pro-preview for advanced mathematical reasoning.
+ * Main tutoring function using gemini-3-flash-preview for high-performance Socratic dialogue.
  */
 export const getGeminiTutorResponse = async (
   history: ChatMessage[],
   isDeepDive: boolean = false
 ) => {
   try {
-    // Check if API key is available (it's injected via vite.config.ts define)
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      throw new Error("API_KEY_MISSING: The logic gateway is closed. Check environment variables.");
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    // Always use the recommended initialization with process.env.API_KEY directly as a named parameter.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const contents = history.map(msg => ({
       role: msg.sender === Sender.USER ? 'user' : 'model',
@@ -55,15 +50,16 @@ export const getGeminiTutorResponse = async (
     }
 
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: contents,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         temperature: 0.7,
-        thinkingConfig: { thinkingBudget: 16384 } // High budget for solving the math internally first
+        topP: 0.95,
       },
     });
 
+    // Directly access the .text property as per SDK documentation.
     const text = response.text;
     if (!text) throw new Error("EMPTY_RESPONSE");
 
@@ -72,22 +68,26 @@ export const getGeminiTutorResponse = async (
     console.error("Socratica Error:", error);
     const msg = error.message || "";
     
-    if (msg.includes("API_KEY_MISSING")) {
-      return "API_ERROR: Environment variable API_KEY is missing in your deployment dashboard.";
-    }
+    // Handle specific API error conditions gracefully for the Socratic UI.
     if (error.status === 429) {
-      return "API_ERROR: Logic realm is busy (Quota Exceeded). Please wait a moment.";
+      return "API_ERROR: The logic gateway is congested (Quota Exceeded). Please wait a moment.";
     }
-    return "API_ERROR: Socratica had trouble reaching the logic source. Check your API key.";
+    
+    if (msg.includes("Requested entity was not found") || msg.includes("API key")) {
+      return "API_ERROR: Connection to the logic source failed. Please verify your logic source (API Key) configuration.";
+    }
+    
+    return "API_ERROR: Socratica is momentarily disconnected. Please check your logic source connection.";
   }
 };
 
+/**
+ * Transcribes student's audio queries into LaTeX-enriched text using the Flash model.
+ */
 export const transcribeAudio = async (audioBase64: string, mimeType: string): Promise<string> => {
   try {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) return "";
-    
-    const ai = new GoogleGenAI({ apiKey });
+    // Initialize SDK directly for transcription task.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [
@@ -101,6 +101,7 @@ export const transcribeAudio = async (audioBase64: string, mimeType: string): Pr
     });
     return response.text || "";
   } catch (error) {
+    console.error("Transcription Failed:", error);
     return "";
   }
 };
