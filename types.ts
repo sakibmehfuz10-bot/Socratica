@@ -38,11 +38,8 @@ export interface AIStudio {
 // Global declaration for the aistudio environment API
 declare global {
   interface Window {
-    // Fix: Made 'aistudio' optional to match pre-existing global modifiers and 
-    // used an inline definition to resolve type compatibility issues with potential global declarations.
-    aistudio?: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
-    };
+    // Fix: Subsequent property declarations must have the same type. 
+    // Using the defined AIStudio interface ensures consistency with existing declarations.
+    aistudio?: AIStudio;
   }
 }

@@ -24,14 +24,16 @@ DEEP DIVE HANDLING:
 - If the system notes "DEEP DIVE mode", focus 100% on the conceptual intuition of the specific term clicked.`;
 
 /**
- * Main tutoring function using gemini-3-flash-preview for high-performance Socratic dialogue.
+ * Main tutoring function using gemini-3-pro-preview for high-performance Socratic dialogue.
+ * The API key is obtained exclusively via process.env.API_KEY.
  */
 export const getGeminiTutorResponse = async (
   history: ChatMessage[],
   isDeepDive: boolean = false
 ) => {
   try {
-    // Always use the recommended initialization with process.env.API_KEY directly as a named parameter.
+    // Fix: Create a new instance right before making an API call to ensure it uses the latest API key.
+    // Use process.env.API_KEY directly as per guidelines.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const contents = history.map(msg => ({
@@ -49,8 +51,9 @@ export const getGeminiTutorResponse = async (
       });
     }
 
+    // Fix: Use gemini-3-pro-preview for complex math and STEM reasoning tasks.
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: contents,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
@@ -59,22 +62,21 @@ export const getGeminiTutorResponse = async (
       },
     });
 
-    // Directly access the .text property as per SDK documentation.
+    // Fix: Directly access the .text property (not a method).
     const text = response.text;
     if (!text) throw new Error("EMPTY_RESPONSE");
 
     return text;
   } catch (error: any) {
     console.error("Socratica Error:", error);
-    const msg = error.message || "";
     
-    // Handle specific API error conditions gracefully for the Socratic UI.
+    // Graceful error handling for common API issues.
     if (error.status === 429) {
       return "API_ERROR: The logic gateway is congested (Quota Exceeded). Please wait a moment.";
     }
-    
-    if (msg.includes("Requested entity was not found") || msg.includes("API key")) {
-      return "API_ERROR: Connection to the logic source failed. Please verify your logic source (API Key) configuration.";
+
+    if (error.status === 404 && error.message?.includes("Requested entity was not found")) {
+      return "API_ERROR: The logic source project was not found. Please re-select your API key.";
     }
     
     return "API_ERROR: Socratica is momentarily disconnected. Please check your logic source connection.";
@@ -82,14 +84,14 @@ export const getGeminiTutorResponse = async (
 };
 
 /**
- * Transcribes student's audio queries into LaTeX-enriched text using the Flash model.
+ * Transcribes student's audio queries into LaTeX-enriched text using gemini-3-pro-preview.
  */
 export const transcribeAudio = async (audioBase64: string, mimeType: string): Promise<string> => {
   try {
-    // Initialize SDK directly for transcription task.
+    // Fix: Initialize GoogleGenAI right before the API call.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: [
         {
           parts: [
@@ -99,6 +101,7 @@ export const transcribeAudio = async (audioBase64: string, mimeType: string): Pr
         }
       ]
     });
+    // Fix: Access .text property directly.
     return response.text || "";
   } catch (error) {
     console.error("Transcription Failed:", error);
