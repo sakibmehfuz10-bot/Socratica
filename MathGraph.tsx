@@ -58,7 +58,6 @@ const MathGraph: React.FC<MathGraphProps> = ({
   const rawMinY = Math.min(...allY);
   const rawMaxY = Math.max(...allY);
   
-  // Constrain Y to avoid extreme stretching, but include 0
   const minY = Math.max(Math.min(rawMinY, -0.5), -20);
   const maxY = Math.min(Math.max(rawMaxY, 0.5), 20);
   
@@ -66,12 +65,12 @@ const MathGraph: React.FC<MathGraphProps> = ({
 
   const mapX = (x: number) => padding + ((x - minX) / (maxX - minX)) * (width - 2 * padding);
   const mapY = (y: number) => {
-    // Clamp Y for visualization
     const clampedY = Math.max(minY, Math.min(maxY, y));
     return height - padding - ((clampedY - minY) / (maxY - minY)) * (height - 2 * padding);
   };
 
-  const pathData = data.points.reduce((acc, p, i) => {
+  // Fixed TS2345 by explicitly typing the accumulator as string
+  const pathData = data.points.reduce<string>((acc, p, i) => {
     const x = mapX(p.x);
     const y = mapY(p.y);
     return acc + `${i === 0 ? 'M' : 'L'} ${x} ${y} `;
@@ -87,15 +86,10 @@ const MathGraph: React.FC<MathGraphProps> = ({
         <code className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg">$y = {expression}$</code>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible">
-        {/* Grid lines (optional, kept simple for aesthetic) */}
         <line x1={mapX(minX)} y1={mapY(0)} x2={mapX(maxX)} y2={mapY(0)} stroke="#e2e8f0" strokeWidth="1" />
         <line x1={mapX(0)} y1={mapY(minY)} x2={mapX(0)} y2={mapY(maxY)} stroke="#e2e8f0" strokeWidth="1" />
-        
-        {/* Axis Labels */}
         <text x={mapX(maxX) - 5} y={mapY(0) + 12} fontSize="9" fill="#94a3b8" textAnchor="end" fontWeight="bold">x</text>
         <text x={mapX(0) + 5} y={mapY(maxY) + 5} fontSize="9" fill="#94a3b8" fontWeight="bold">y</text>
-
-        {/* Function Path */}
         <path 
           d={pathData} 
           fill="none" 
