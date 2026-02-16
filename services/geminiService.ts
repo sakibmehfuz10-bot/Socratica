@@ -17,28 +17,27 @@ DYNAMIC CAPABILITIES:
 
 TONE & STYLE:
 - Use KaTeX for ALL mathematical notation (always wrap in $ or $$).
-- Use relatable analogies (e.g., "A function is like a machine: you put in a raw ingredient (x), and it gives you a finished product (y)").
+- Use relatable analogies.
 - Intellectual, patient, and highly encouraging.
 
 DEEP DIVE HANDLING:
-- If the system notes "DEEP DIVE mode", halt progress on the main problem. 
-- Focus 100% on the conceptual intuition of the specific term the student clicked until they explicitly say they are ready to move back.`;
+- If the system notes "DEEP DIVE mode", focus 100% on the conceptual intuition of the specific term clicked.`;
 
 /**
- * Main tutoring function using gemini-3-pro-preview for complex reasoning
- * and multimodal Socratic dialogue.
+ * Main tutoring function using gemini-3-pro-preview for advanced mathematical reasoning.
  */
 export const getGeminiTutorResponse = async (
   history: ChatMessage[],
   isDeepDive: boolean = false
 ) => {
   try {
-    // Validate API Key existence before initialization
-    if (!process.env.API_KEY) {
-      throw new Error("API_KEY is not defined in environment variables.");
+    // Check if API key is available (it's injected via vite.config.ts define)
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      throw new Error("API_KEY_MISSING: The logic gateway is closed. Check environment variables.");
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
 
     const contents = history.map(msg => ({
       role: msg.sender === Sender.USER ? 'user' : 'model',
@@ -51,7 +50,7 @@ export const getGeminiTutorResponse = async (
     if (isDeepDive) {
       contents.push({
         role: 'user',
-        parts: [{ text: "(System Note: User is currently in DEEP DIVE mode. Focus exclusively on the intuition of the term mentioned. Do not proceed with the math problem.)" }]
+        parts: [{ text: "(System Note: User is in DEEP DIVE mode. Focus only on conceptual intuition.)" }]
       });
     }
 
@@ -61,58 +60,47 @@ export const getGeminiTutorResponse = async (
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         temperature: 0.7,
-        topP: 0.95,
-        // Added thinkingConfig for enhanced Socratic reasoning in math
-        thinkingConfig: { thinkingBudget: 16384 }
+        thinkingConfig: { thinkingBudget: 16384 } // High budget for solving the math internally first
       },
     });
 
     const text = response.text;
-    if (!text) {
-      return "API_ERROR: The flow of logic was interrupted. Please try rephrasing.";
-    }
+    if (!text) throw new Error("EMPTY_RESPONSE");
 
     return text;
   } catch (error: any) {
-    console.error("Gemini Tutor Error:", error);
+    console.error("Socratica Error:", error);
+    const msg = error.message || "";
     
-    const errorMsg = error.message || "Unknown error";
-    
-    if (errorMsg.includes("API_KEY") || errorMsg.includes("not defined")) {
-      return "API_ERROR: Environment Variable Missing. Ensure logic source is correctly configured.";
+    if (msg.includes("API_KEY_MISSING")) {
+      return "API_ERROR: Environment variable API_KEY is missing in your deployment dashboard.";
     }
-
-    if (error.status === 429 || errorMsg.includes("429") || errorMsg.includes("quota")) {
-      return "API_ERROR: Discovery limit reached. Please wait a moment for the logic realm to reset.";
+    if (error.status === 429) {
+      return "API_ERROR: Logic realm is busy (Quota Exceeded). Please wait a moment.";
     }
-    
-    return "API_ERROR: Socratica is momentarily disconnected. Please check your logic source (API Key).";
+    return "API_ERROR: Socratica had trouble reaching the logic source. Check your API key.";
   }
 };
 
-/**
- * Transcribes student voice questions into math-ready text.
- */
 export const transcribeAudio = async (audioBase64: string, mimeType: string): Promise<string> => {
   try {
-    if (!process.env.API_KEY) return "";
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) return "";
     
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [
         {
           parts: [
             { inlineData: { data: audioBase64, mimeType: mimeType } },
-            { text: "Accurately transcribe this math question. Convert spoken symbols to LaTeX (e.g., say 'x squared' -> '$x^2$'). Return only the transcribed text." }
+            { text: "Transcribe this math question accurately into text with LaTeX symbols." }
           ]
         }
       ]
     });
-    
     return response.text || "";
   } catch (error) {
-    console.error("Transcription Error:", error);
     return "";
   }
 };
