@@ -27,6 +27,7 @@ export const getGeminiTutorResponse = async (
   history: ChatMessage[],
   isDeepDive: boolean = false
 ) => {
+  // Always create a fresh instance right before the call to ensure the latest API key is used
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const contents = history.map(msg => ({
@@ -50,6 +51,7 @@ export const getGeminiTutorResponse = async (
       contents: contents,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
+        // Using maximum thinking budget for Pro models to ensure deep mathematical reasoning
         thinkingConfig: { thinkingBudget: 32768 },
       },
     });
@@ -62,10 +64,18 @@ export const getGeminiTutorResponse = async (
 
     return text;
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
-    const status = error.status;
-    if (status === 401 || status === 403) throw new Error("API_KEY_INVALID");
-    if (status === 429) throw new Error("RATE_LIMIT_EXCEEDED");
+    console.error("Gemini API Error details:", error);
+    const message = error.message || "";
+    
+    // Check for "Logic Realm" related failures (API key / Model visibility)
+    if (message.includes("Requested entity was not found") || message.includes("404")) {
+      throw new Error("MODEL_NOT_FOUND");
+    }
+    if (error.status === 401 || error.status === 403 || message.includes("API_KEY_INVALID")) {
+      throw new Error("API_KEY_INVALID");
+    }
+    if (error.status === 429) throw new Error("RATE_LIMIT_EXCEEDED");
+    
     throw new Error("MODEL_PROCESS_ERROR");
   }
 };

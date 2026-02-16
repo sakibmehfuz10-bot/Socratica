@@ -16,7 +16,7 @@ import {
   Camera,
   Heart,
   BrainCircuit,
-  Maximize2
+  Key
 } from 'lucide-react';
 import { ChatMessage, Sender, TutorState } from './types';
 import { getGeminiTutorResponse, transcribeAudio } from './services/geminiService';
@@ -69,6 +69,7 @@ const App: React.FC = () => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [showExamples, setShowExamples] = useState(true);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [keyMissing, setKeyMissing] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -92,6 +93,15 @@ const App: React.FC = () => {
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
   }, [inputText]);
+
+  const handleOpenKeySelection = async () => {
+    if (window.aistudio?.openSelectKey) {
+      await window.aistudio.openSelectKey();
+      setKeyMissing(false);
+    } else {
+      window.open('https://ai.google.dev/gemini-api/docs/billing', '_blank');
+    }
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -157,6 +167,8 @@ const App: React.FC = () => {
       ]
     };
 
+    const currentHistory = state.messages;
+
     setState(prev => ({
       ...prev,
       messages: [...prev.messages, userMessage],
@@ -170,7 +182,7 @@ const App: React.FC = () => {
 
     try {
       const responseText = await getGeminiTutorResponse(
-        [...state.messages, userMessage],
+        [...currentHistory, userMessage],
         forceDeepDive || state.isDeepDive
       );
 
@@ -183,11 +195,23 @@ const App: React.FC = () => {
 
       setState(prev => ({ ...prev, messages: [...prev.messages, aiMessage], isLoading: false }));
     } catch (error: any) {
+      console.error("Detailed catch error:", error);
+      let errorText = "I'm having a bit of trouble connecting to the logic realm. Let's try that again in a moment.";
+      
+      if (error.message === "MODEL_NOT_FOUND" || error.message === "API_KEY_INVALID") {
+        setKeyMissing(true);
+        errorText = "It looks like my connection to the mathematical source is interrupted. Please ensure your API Key is set correctly and try again.";
+      } else if (error.message === "SAFETY_ERROR") {
+        errorText = "I must stay focused on our mathematical journey. Let's redirect our curiosity back to the problem at hand.";
+      } else if (error.message === "RATE_LIMIT_EXCEEDED") {
+        errorText = "My cognitive cycles need a brief moment to cool down. Let's pause for just a few seconds.";
+      }
+
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: Sender.AI,
         timestamp: Date.now(),
-        parts: [{ text: "I'm having a bit of trouble connecting to the logic realm. Let's try that again in a moment." }]
+        parts: [{ text: errorText }]
       };
       setState(prev => ({ ...prev, messages: [...prev.messages, errorMessage], isLoading: false }));
     }
@@ -237,9 +261,16 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="flex gap-2">
+          <button 
+            onClick={handleOpenKeySelection}
+            className={`p-2 rounded-xl transition-all border ${keyMissing ? 'bg-red-500 border-white animate-bounce' : 'hover:bg-white/10 border-white/20'}`}
+            title="Update API Key"
+          >
+            <Key className="w-5 h-5" />
+          </button>
           {state.isDeepDive && (
             <button onClick={() => setState(p => ({ ...p, isDeepDive: false }))} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition-all">
-              <ArrowLeft className="w-3.5 h-3.5" /> Back to Problem
+              <ArrowLeft className="w-3.5 h-3.5" /> Back
             </button>
           )}
           <button onClick={() => window.location.reload()} className="p-2 hover:bg-white/10 rounded-xl transition-colors border border-white/20">
@@ -253,6 +284,17 @@ const App: React.FC = () => {
         {state.messages.map((msg) => (
           <MessageBubble key={msg.id} message={msg} isDeepDiveContext={state.isDeepDive} onVariableClick={(v) => handleSend(`Can you help me understand the intuition behind $${v}$?`, true)} />
         ))}
+
+        {keyMissing && (
+          <div className="flex justify-center p-4 animate-in fade-in slide-in-from-top-4">
+            <button 
+              onClick={handleOpenKeySelection}
+              className="px-6 py-3 bg-red-600 text-white rounded-2xl font-bold shadow-lg hover:bg-red-700 transition-all flex items-center gap-2"
+            >
+              <Key className="w-5 h-5" /> Connect API Key
+            </button>
+          </div>
+        )}
 
         {showExamples && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in slide-in-from-bottom-4 duration-1000">
@@ -285,7 +327,7 @@ const App: React.FC = () => {
         {isTranscribing && (
           <div className="flex justify-end p-2 animate-in fade-in">
              <div className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" /> Listening...
+                <Loader2 className="w-4 h-4 animate-spin" /> Transcribing...
              </div>
           </div>
         )}
