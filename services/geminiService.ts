@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ChatMessage, Sender } from "../types";
 
@@ -27,62 +26,49 @@ export const getGeminiTutorResponse = async (
   history: ChatMessage[],
   isDeepDive: boolean = false
 ) => {
-  // Always create a fresh instance right before the call to ensure the latest API key is used
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-  const contents = history.map(msg => ({
-    role: msg.sender === Sender.USER ? 'user' : 'model',
-    parts: msg.parts.map(p => {
-      if (p.inlineData) return { inlineData: p.inlineData };
-      return { text: p.text || '' };
-    })
-  }));
-
-  if (isDeepDive) {
-    contents.push({
-      role: 'user',
-      parts: [{ text: "(System Note: User is in DEEP DIVE mode. Focus purely on conceptual intuition of the last term clicked. Do not solve the problem.)" }]
-    });
-  }
-
   try {
+    // Always create a fresh instance right before the call to ensure the latest API key is used
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+    const contents = history.map(msg => ({
+      role: msg.sender === Sender.USER ? 'user' : 'model',
+      parts: msg.parts.map(p => {
+        if (p.inlineData) return { inlineData: p.inlineData };
+        return { text: p.text || '' };
+      })
+    }));
+
+    if (isDeepDive) {
+      contents.push({
+        role: 'user',
+        parts: [{ text: "(System Note: User is in DEEP DIVE mode. Focus purely on conceptual intuition of the last term clicked. Do not solve the problem.)" }]
+      });
+    }
+
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: contents,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
-        // Using maximum thinking budget for Pro models to ensure deep mathematical reasoning
         thinkingConfig: { thinkingBudget: 32768 },
       },
     });
 
     const text = response.text;
     if (!text) {
-      if (response.candidates?.[0]?.finishReason === 'SAFETY') throw new Error("SAFETY_ERROR");
-      throw new Error("EMPTY_RESPONSE");
+      return "API_ERROR: Please check your API Key in settings.";
     }
 
     return text;
   } catch (error: any) {
     console.error("Gemini API Error details:", error);
-    const message = error.message || "";
-    
-    // Check for "Logic Realm" related failures (API key / Model visibility)
-    if (message.includes("Requested entity was not found") || message.includes("404")) {
-      throw new Error("MODEL_NOT_FOUND");
-    }
-    if (error.status === 401 || error.status === 403 || message.includes("API_KEY_INVALID")) {
-      throw new Error("API_KEY_INVALID");
-    }
-    if (error.status === 429) throw new Error("RATE_LIMIT_EXCEEDED");
-    
-    throw new Error("MODEL_PROCESS_ERROR");
+    return "API_ERROR: Please check your API Key in settings.";
   }
 };
 
 export const transcribeAudio = async (audioBase64: string, mimeType: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [
@@ -97,6 +83,6 @@ export const transcribeAudio = async (audioBase64: string, mimeType: string): Pr
     return response.text || "";
   } catch (error) {
     console.error("Transcription Error:", error);
-    throw new Error("TRANSCRIPTION_FAILED");
+    return "";
   }
 };

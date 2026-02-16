@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Send, 
@@ -180,41 +179,23 @@ const App: React.FC = () => {
     clearImage();
     setShowExamples(false);
 
-    try {
-      const responseText = await getGeminiTutorResponse(
-        [...currentHistory, userMessage],
-        forceDeepDive || state.isDeepDive
-      );
+    const responseText = await getGeminiTutorResponse(
+      [...currentHistory, userMessage],
+      forceDeepDive || state.isDeepDive
+    );
 
-      const aiMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: Sender.AI,
-        timestamp: Date.now(),
-        parts: [{ text: responseText }]
-      };
-
-      setState(prev => ({ ...prev, messages: [...prev.messages, aiMessage], isLoading: false }));
-    } catch (error: any) {
-      console.error("Detailed catch error:", error);
-      let errorText = "I'm having a bit of trouble connecting to the logic realm. Let's try that again in a moment.";
-      
-      if (error.message === "MODEL_NOT_FOUND" || error.message === "API_KEY_INVALID") {
-        setKeyMissing(true);
-        errorText = "It looks like my connection to the mathematical source is interrupted. Please ensure your API Key is set correctly and try again.";
-      } else if (error.message === "SAFETY_ERROR") {
-        errorText = "I must stay focused on our mathematical journey. Let's redirect our curiosity back to the problem at hand.";
-      } else if (error.message === "RATE_LIMIT_EXCEEDED") {
-        errorText = "My cognitive cycles need a brief moment to cool down. Let's pause for just a few seconds.";
-      }
-
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: Sender.AI,
-        timestamp: Date.now(),
-        parts: [{ text: errorText }]
-      };
-      setState(prev => ({ ...prev, messages: [...prev.messages, errorMessage], isLoading: false }));
+    if (responseText.includes("API_ERROR:")) {
+      setKeyMissing(true);
     }
+
+    const aiMessage: ChatMessage = {
+      id: (Date.now() + 1).toString(),
+      sender: Sender.AI,
+      timestamp: Date.now(),
+      parts: [{ text: responseText }]
+    };
+
+    setState(prev => ({ ...prev, messages: [...prev.messages, aiMessage], isLoading: false }));
   };
 
   const startRecording = async () => {

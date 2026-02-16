@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Sender, ChatMessage } from '../types';
 import { User, Sparkles, Zap, Copy, Check } from 'lucide-react';
