@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { ChatMessage, Sender } from "../types.ts";
+import { ChatMessage, Sender } from "../types";
 
 const SYSTEM_INSTRUCTION = `You are "Socratica", a compassionate, world-class Socratic math tutor. 
 Your goal is guided discovery, not answer-giving.

@@ -18,9 +18,9 @@ import {
   BrainCircuit,
   Maximize2
 } from 'lucide-react';
-import { ChatMessage, Sender, TutorState } from './types.ts';
-import { getGeminiTutorResponse, transcribeAudio } from './services/geminiService.ts';
-import MessageBubble from './components/MessageBubble.tsx';
+import { ChatMessage, Sender, TutorState } from './types';
+import { getGeminiTutorResponse, transcribeAudio } from './services/geminiService';
+import MessageBubble from './components/MessageBubble';
 
 const MATH_EXAMPLES = [
   {

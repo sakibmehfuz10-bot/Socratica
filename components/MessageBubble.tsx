@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import { Sender, ChatMessage } from '../types.ts';
+import { Sender, ChatMessage } from '../types';
 import { User, Sparkles, Zap, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import MathGraph from '../MathGraph.tsx';
+import MathGraph from '../MathGraph';
 
 interface MessageBubbleProps {
   message: ChatMessage;
