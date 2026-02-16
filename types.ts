@@ -26,3 +26,16 @@ export interface TutorState {
   currentImage: string | null;
   isDeepDive?: boolean;
 }
+
+// Define the AIStudio interface to match the global declaration and provide type safety
+export interface AIStudio {
+  hasSelectedApiKey: () => Promise<boolean>;
+  openSelectKey: () => Promise<void>;
+}
+
+declare global {
+  interface Window {
+    // Fixed: Use named AIStudio type and match existing modifiers (readonly) to resolve compiler errors
+    readonly aistudio: AIStudio;
+  }
+}

@@ -15,7 +15,8 @@ import {
   Camera,
   Heart,
   BrainCircuit,
-  Key
+  Key,
+  AlertCircle
 } from 'lucide-react';
 import { ChatMessage, Sender, TutorState } from './types';
 import { getGeminiTutorResponse, transcribeAudio } from './services/geminiService';
@@ -68,7 +69,7 @@ const App: React.FC = () => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [showExamples, setShowExamples] = useState(true);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [keyMissing, setKeyMissing] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -96,7 +97,7 @@ const App: React.FC = () => {
   const handleOpenKeySelection = async () => {
     if (window.aistudio?.openSelectKey) {
       await window.aistudio.openSelectKey();
-      setKeyMissing(false);
+      setKeyError(null);
     } else {
       window.open('https://ai.google.dev/gemini-api/docs/billing', '_blank');
     }
@@ -185,7 +186,13 @@ const App: React.FC = () => {
     );
 
     if (responseText.includes("API_ERROR:")) {
-      setKeyMissing(true);
+      if (responseText.includes("Quota exceeded")) {
+        setKeyError("Quota Exceeded: Your API key's limit has been reached. Please connect a key from a paid GCP project.");
+      } else {
+        setKeyError("Connection Error: Please verify your API settings.");
+      }
+    } else {
+      setKeyError(null);
     }
 
     const aiMessage: ChatMessage = {
@@ -244,7 +251,7 @@ const App: React.FC = () => {
         <div className="flex gap-2">
           <button 
             onClick={handleOpenKeySelection}
-            className={`p-2 rounded-xl transition-all border ${keyMissing ? 'bg-red-500 border-white animate-bounce' : 'hover:bg-white/10 border-white/20'}`}
+            className={`p-2 rounded-xl transition-all border ${keyError ? 'bg-red-500 border-white animate-bounce' : 'hover:bg-white/10 border-white/20'}`}
             title="Update API Key"
           >
             <Key className="w-5 h-5" />
@@ -266,14 +273,24 @@ const App: React.FC = () => {
           <MessageBubble key={msg.id} message={msg} isDeepDiveContext={state.isDeepDive} onVariableClick={(v) => handleSend(`Can you help me understand the intuition behind $${v}$?`, true)} />
         ))}
 
-        {keyMissing && (
-          <div className="flex justify-center p-4 animate-in fade-in slide-in-from-top-4">
+        {keyError && (
+          <div className="flex flex-col items-center gap-4 p-6 bg-red-50 border border-red-200 rounded-3xl animate-in fade-in slide-in-from-top-4">
+            <div className="flex items-center gap-2 text-red-600 font-bold">
+              <AlertCircle className="w-6 h-6" />
+              <span>Logic Realm Blocked</span>
+            </div>
+            <p className="text-center text-sm text-red-700 leading-relaxed max-w-md">
+              {keyError}
+            </p>
             <button 
               onClick={handleOpenKeySelection}
-              className="px-6 py-3 bg-red-600 text-white rounded-2xl font-bold shadow-lg hover:bg-red-700 transition-all flex items-center gap-2"
+              className="px-6 py-3 bg-red-600 text-white rounded-2xl font-bold shadow-lg hover:bg-red-700 transition-all flex items-center gap-2 active:scale-95"
             >
               <Key className="w-5 h-5" /> Connect API Key
             </button>
+            <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-[10px] text-red-400 font-black uppercase tracking-widest hover:underline">
+              Learn about Billing for paid projects
+            </a>
           </div>
         )}
 
@@ -319,7 +336,7 @@ const App: React.FC = () => {
       <div className="bg-white border-t border-slate-200 p-4 relative">
         
         {/* Quick Socratic Reactions */}
-        {!state.isLoading && (
+        {!state.isLoading && !keyError && (
           <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-1">
             {QUICK_REACTIONS.map((q, i) => (
               <button key={i} onClick={() => handleSend(q)} className={`whitespace-nowrap px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all border ${state.isDeepDive ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'}`}>

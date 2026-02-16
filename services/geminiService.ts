@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ChatMessage, Sender } from "../types";
 
@@ -27,7 +28,7 @@ export const getGeminiTutorResponse = async (
   isDeepDive: boolean = false
 ) => {
   try {
-    // Always create a fresh instance right before the call to ensure the latest API key is used
+    // Initialize GoogleGenAI right before use to ensure the latest API key is used
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const contents = history.map(msg => ({
@@ -45,24 +46,37 @@ export const getGeminiTutorResponse = async (
       });
     }
 
+    // Upgraded to gemini-3-pro-preview for complex text tasks (math reasoning)
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: contents,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
+        // Pro models support larger thinking budgets for advanced reasoning
         thinkingConfig: { thinkingBudget: 32768 },
       },
     });
 
     const text = response.text;
     if (!text) {
-      return "API_ERROR: Please check your API Key in settings.";
+      return "API_ERROR: Empty response from logic realm.";
     }
 
     return text;
   } catch (error: any) {
     console.error("Gemini API Error details:", error);
-    return "API_ERROR: Please check your API Key in settings.";
+    
+    const errorMsg = error.message || "";
+    // Handle specific 429 quota error or 404 entity not found
+    if (error.status === 429 || errorMsg.includes("429") || errorMsg.includes("quota")) {
+      return "API_ERROR: Quota exceeded. Please select a paid API key with billing enabled.";
+    }
+    // Guidelines: Reset key selection if entity not found (404)
+    if (error.status === 404 || errorMsg.includes("not found")) {
+      return "API_ERROR: Connection lost. Please re-select your API key.";
+    }
+    
+    return "API_ERROR: Unable to connect to Socratica. Please check your API Key.";
   }
 };
 
