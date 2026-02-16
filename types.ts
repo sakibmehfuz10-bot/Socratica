@@ -35,7 +35,7 @@ export interface AIStudio {
 
 declare global {
   interface Window {
-    // Fixed: Use named AIStudio type and match existing modifiers (readonly) to resolve compiler errors
+    // Fix: Match the platform's pre-existing aistudio declaration using 'readonly' and 'AIStudio' type.
     readonly aistudio: AIStudio;
   }
 }

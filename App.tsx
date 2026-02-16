@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Send, 
@@ -16,7 +17,8 @@ import {
   Heart,
   BrainCircuit,
   Key,
-  AlertCircle
+  ShieldAlert,
+  Info
 } from 'lucide-react';
 import { ChatMessage, Sender, TutorState } from './types';
 import { getGeminiTutorResponse, transcribeAudio } from './services/geminiService';
@@ -24,27 +26,27 @@ import MessageBubble from './components/MessageBubble';
 
 const MATH_EXAMPLES = [
   {
-    title: "Calculus",
-    text: "Help me find the derivative of $f(x) = x^2 \\cdot \\sin(x)$",
+    title: "Derivatives",
+    text: "How do I find the derivative of $f(x) = x \cdot \sin(x)$?",
     icon: <Zap className="w-4 h-4 text-orange-500" />
   },
   {
-    title: "Algebra",
-    text: "Why is $(a+b)^2$ not just $a^2 + b^2$?",
+    title: "Logic",
+    text: "Why does $(a+b)^2 = a^2 + 2ab + b^2$ instead of just $a^2 + b^2$?",
     icon: <ListTree className="w-4 h-4 text-blue-500" />
   },
   {
-    title: "Logarithms",
-    text: "Can you explain what $\\ln(x)$ actually represents?",
+    title: "Limits",
+    text: "Can you help me visualize the limit of $\frac{1}{x}$ as $x \to \infty$?",
     icon: <RotateCcw className="w-4 h-4 text-green-500" />
   }
 ];
 
 const QUICK_REACTIONS = [
-  "I'm feeling lost.",
-  "What is the goal of this step?",
-  "Show me an analogy.",
-  "Let's try a simpler example."
+  "I'm feeling stuck here.",
+  "Can we try a simpler case?",
+  "What's the 'Why' behind this?",
+  "I think I see it!"
 ];
 
 const App: React.FC = () => {
@@ -54,7 +56,7 @@ const App: React.FC = () => {
         id: '1',
         sender: Sender.AI,
         timestamp: Date.now(),
-        parts: [{ text: "Welcome to your sanctuary for learning. I'm Socratica.\n\nMath isn't just about answers—it's about seeing the hidden logic of the universe. What should we explore together today?" }]
+        parts: [{ text: "Welcome to your sanctuary for mathematical discovery. I am Socratica.\n\nHere, we don't just find answers—we uncover the beauty of logic. What should we explore together today?" }]
       }
     ],
     isLoading: false,
@@ -121,7 +123,6 @@ const App: React.FC = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       if (videoRef.current) videoRef.current.srcObject = stream;
     } catch (err) {
-      console.error("Camera access denied", err);
       setIsCameraOpen(false);
     }
   };
@@ -186,11 +187,7 @@ const App: React.FC = () => {
     );
 
     if (responseText.includes("API_ERROR:")) {
-      if (responseText.includes("Quota exceeded")) {
-        setKeyError("Quota Exceeded: Your API key's limit has been reached. Please connect a key from a paid GCP project.");
-      } else {
-        setKeyError("Connection Error: Please verify your API settings.");
-      }
+      setKeyError(responseText.split("API_ERROR: ")[1]);
     } else {
       setKeyError(null);
     }
@@ -221,7 +218,7 @@ const App: React.FC = () => {
           try {
             const transcription = await transcribeAudio(base64, mediaRecorder.mimeType);
             if (transcription) setInputText(prev => prev ? `${prev} ${transcription}` : transcription);
-          } catch (err) { console.error(err); }
+          } catch (err) {}
           finally { setIsTranscribing(false); }
         };
         reader.readAsDataURL(audioBlob);
@@ -229,103 +226,117 @@ const App: React.FC = () => {
       };
       mediaRecorder.start();
       setIsRecording(true);
-    } catch (err) { console.error(err); }
+    } catch (err) {}
   };
 
   const stopRecording = () => { mediaRecorderRef.current?.stop(); setIsRecording(false); };
 
   return (
-    <div className={`flex flex-col h-screen max-w-4xl mx-auto transition-colors duration-700 overflow-hidden md:my-4 md:rounded-3xl border shadow-2xl ${state.isDeepDive ? 'bg-purple-50 border-purple-200' : 'bg-white border-slate-200'}`}>
+    <div className={`flex flex-col h-screen max-w-5xl mx-auto transition-all duration-700 overflow-hidden md:my-6 md:rounded-[2.5rem] border shadow-2xl relative ${state.isDeepDive ? 'bg-purple-50 border-purple-200' : 'bg-slate-50 border-slate-200'}`}>
       
+      {/* Background Decor */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03] z-0" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+
       {/* Header */}
-      <header className={`p-4 sm:p-5 flex justify-between items-center transition-all duration-700 ${state.isDeepDive ? 'bg-purple-800' : 'bg-indigo-700'} text-white shadow-lg`}>
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl backdrop-blur-md ${state.isDeepDive ? 'bg-white/20' : 'bg-white/10'}`}>
+      <header className={`relative z-10 p-5 flex justify-between items-center transition-all duration-700 ${state.isDeepDive ? 'bg-purple-800' : 'bg-slate-900'} text-white shadow-xl`}>
+        <div className="flex items-center gap-4">
+          <div className={`p-2.5 rounded-2xl shadow-inner transition-colors duration-500 ${state.isDeepDive ? 'bg-purple-600' : 'bg-indigo-600'}`}>
             {state.isDeepDive ? <BrainCircuit className="w-6 h-6 animate-pulse" /> : <GraduationCap className="w-6 h-6" />}
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight">{state.isDeepDive ? 'Concept Deep Dive' : 'Socratica'}</h1>
-            <p className="text-[10px] uppercase tracking-[0.2em] font-black opacity-70">Compassionate Mastery</p>
+            <div className="flex items-center gap-1.5 opacity-60">
+               <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+               <span className="text-[10px] uppercase tracking-[0.2em] font-black">Guided Discovery</span>
+            </div>
           </div>
         </div>
+        
         <div className="flex gap-2">
+          {state.isDeepDive && (
+            <button onClick={() => setState(p => ({ ...p, isDeepDive: false }))} className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold transition-all border border-white/10">
+              <ArrowLeft className="w-4 h-4" /> Exit Dive
+            </button>
+          )}
           <button 
             onClick={handleOpenKeySelection}
-            className={`p-2 rounded-xl transition-all border ${keyError ? 'bg-red-500 border-white animate-bounce' : 'hover:bg-white/10 border-white/20'}`}
-            title="Update API Key"
+            className={`p-2.5 rounded-xl transition-all border ${keyError ? 'bg-red-500 border-white animate-bounce' : 'hover:bg-white/10 border-white/20'}`}
+            title="Update Logic Source"
           >
             <Key className="w-5 h-5" />
           </button>
-          {state.isDeepDive && (
-            <button onClick={() => setState(p => ({ ...p, isDeepDive: false }))} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition-all">
-              <ArrowLeft className="w-3.5 h-3.5" /> Back
-            </button>
-          )}
-          <button onClick={() => window.location.reload()} className="p-2 hover:bg-white/10 rounded-xl transition-colors border border-white/20">
+          <button onClick={() => window.location.reload()} className="p-2.5 hover:bg-white/10 rounded-xl transition-colors border border-white/20">
             <RotateCcw className="w-5 h-5" />
           </button>
         </div>
       </header>
 
       {/* Main Chat Area */}
-      <section className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scroll-smooth custom-scrollbar ${state.isDeepDive ? 'bg-purple-50/30' : 'bg-slate-50'}`}>
+      <section className="relative z-10 flex-1 overflow-y-auto p-4 sm:p-8 space-y-8 scroll-smooth custom-scrollbar">
         {state.messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} isDeepDiveContext={state.isDeepDive} onVariableClick={(v) => handleSend(`Can you help me understand the intuition behind $${v}$?`, true)} />
+          <MessageBubble 
+            key={msg.id} 
+            message={msg} 
+            isDeepDiveContext={state.isDeepDive} 
+            onVariableClick={(v) => handleSend(`Help me understand the intuition behind $${v}$?`, true)} 
+          />
         ))}
 
         {keyError && (
-          <div className="flex flex-col items-center gap-4 p-6 bg-red-50 border border-red-200 rounded-3xl animate-in fade-in slide-in-from-top-4">
-            <div className="flex items-center gap-2 text-red-600 font-bold">
-              <AlertCircle className="w-6 h-6" />
-              <span>Logic Realm Blocked</span>
+          <div className="flex flex-col items-center gap-4 p-8 bg-white border-2 border-red-100 rounded-[2rem] shadow-xl animate-in fade-in slide-in-from-top-4 mx-auto max-w-lg">
+            <div className="p-4 bg-red-50 rounded-full">
+              <ShieldAlert className="w-10 h-10 text-red-500" />
             </div>
-            <p className="text-center text-sm text-red-700 leading-relaxed max-w-md">
+            <h2 className="text-lg font-bold text-red-900">Connection Interrupted</h2>
+            <p className="text-center text-sm text-slate-600 leading-relaxed">
               {keyError}
             </p>
-            <button 
-              onClick={handleOpenKeySelection}
-              className="px-6 py-3 bg-red-600 text-white rounded-2xl font-bold shadow-lg hover:bg-red-700 transition-all flex items-center gap-2 active:scale-95"
-            >
-              <Key className="w-5 h-5" /> Connect API Key
-            </button>
-            <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-[10px] text-red-400 font-black uppercase tracking-widest hover:underline">
-              Learn about Billing for paid projects
-            </a>
+            <div className="flex flex-col w-full gap-2">
+              <button 
+                onClick={handleOpenKeySelection}
+                className="w-full py-4 bg-red-600 text-white rounded-2xl font-bold shadow-lg hover:bg-red-700 transition-all flex items-center justify-center gap-2 active:scale-95"
+              >
+                <Key className="w-5 h-5" /> Re-connect Logic Source
+              </button>
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="flex items-center justify-center gap-1.5 py-3 text-[10px] text-slate-400 font-black uppercase tracking-widest hover:text-red-500 transition-colors">
+                <Info className="w-3 h-3" /> Billing Documentation
+              </a>
+            </div>
           </div>
         )}
 
         {showExamples && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-6 duration-1000">
             {MATH_EXAMPLES.map((ex, i) => (
-              <button key={i} onClick={() => handleSend(ex.text)} className="p-4 bg-white border border-slate-200 rounded-2xl text-left hover:border-indigo-400 hover:shadow-md transition-all active:scale-[0.98] group">
-                <div className="mb-2 p-2 bg-slate-50 rounded-lg inline-block group-hover:bg-indigo-50 transition-colors">{ex.icon}</div>
-                <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">{ex.title}</div>
-                <p className="text-[13px] text-slate-700 leading-snug line-clamp-2 font-medium">{ex.text.replace(/\$/g, '')}</p>
+              <button key={i} onClick={() => handleSend(ex.text)} className="group p-5 bg-white border border-slate-200 rounded-[2rem] text-left hover:border-indigo-400 hover:shadow-2xl transition-all active:scale-[0.98]">
+                <div className="mb-4 p-3 bg-slate-50 rounded-2xl inline-block group-hover:bg-indigo-50 transition-colors shadow-sm">{ex.icon}</div>
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{ex.title}</div>
+                <p className="text-sm text-slate-700 leading-relaxed font-semibold">{ex.text.replace(/\$/g, '')}</p>
               </button>
             ))}
           </div>
         )}
 
         {state.isLoading && (
-          <div className="flex items-start gap-3 max-w-[85%] animate-in fade-in slide-in-from-left-2 duration-500">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${state.isDeepDive ? 'bg-purple-700' : 'bg-indigo-600'}`}>
-              <Sparkles className="w-5 h-5 text-white animate-pulse" />
+          <div className="flex items-start gap-4 max-w-[90%] animate-in fade-in slide-in-from-left-4 duration-500">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg transition-colors duration-500 ${state.isDeepDive ? 'bg-purple-700' : 'bg-slate-900'}`}>
+              <Sparkles className="w-6 h-6 text-white animate-pulse" />
             </div>
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-3">
-              <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
+            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-4">
+              <div className="flex gap-1.5">
+                <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" />
               </div>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">Socratica is reflecting...</span>
+              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest italic">Socratica is contemplating...</span>
             </div>
           </div>
         )}
 
         {isTranscribing && (
           <div className="flex justify-end p-2 animate-in fade-in">
-             <div className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" /> Transcribing...
+             <div className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-5 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                <Loader2 className="w-4 h-4 animate-spin" /> Translating Voice to Logic...
              </div>
           </div>
         )}
@@ -333,35 +344,35 @@ const App: React.FC = () => {
       </section>
 
       {/* Input Area */}
-      <div className="bg-white border-t border-slate-200 p-4 relative">
+      <div className="relative z-10 bg-white border-t border-slate-100 p-6 md:p-8">
         
-        {/* Quick Socratic Reactions */}
+        {/* Socratic Shortcuts */}
         {!state.isLoading && !keyError && (
-          <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-1">
+          <div className="flex gap-3 mb-6 overflow-x-auto no-scrollbar pb-2">
             {QUICK_REACTIONS.map((q, i) => (
-              <button key={i} onClick={() => handleSend(q)} className={`whitespace-nowrap px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all border ${state.isDeepDive ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'}`}>
+              <button key={i} onClick={() => handleSend(q)} className={`whitespace-nowrap px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border shadow-sm ${state.isDeepDive ? 'bg-purple-50 text-purple-700 border-purple-100 hover:bg-purple-100' : 'bg-slate-50 text-slate-700 border-slate-100 hover:bg-indigo-50 hover:text-indigo-700'}`}>
                 {q}
               </button>
             ))}
           </div>
         )}
 
-        <footer className="space-y-4">
+        <footer className="space-y-6">
           {imagePreview && (
-            <div className="relative inline-block animate-in zoom-in-95">
-              <img src={imagePreview} className="h-28 w-auto rounded-2xl border-2 border-indigo-600 shadow-2xl object-cover" />
-              <button onClick={clearImage} className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full p-1.5 shadow-lg active:scale-90"><X className="w-4 h-4" /></button>
+            <div className="relative inline-block animate-in zoom-in-95 group">
+              <img src={imagePreview} className="h-32 w-auto rounded-3xl border-4 border-white shadow-2xl object-cover ring-1 ring-slate-100" />
+              <button onClick={clearImage} className="absolute -top-3 -right-3 bg-slate-900 text-white rounded-full p-2 shadow-xl hover:bg-red-600 transition-colors"><X className="w-4 h-4" /></button>
             </div>
           )}
           
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-3">
             <div className="flex flex-col gap-2">
-               <button onClick={startCamera} className="p-4 bg-slate-100 text-slate-600 rounded-2xl hover:bg-indigo-100 hover:text-indigo-700 transition-all active:scale-95 border border-slate-200 shadow-sm" title="Take a photo"><Camera className="w-6 h-6" /></button>
-               <button onClick={() => fileInputRef.current?.click()} className="p-4 bg-slate-100 text-slate-600 rounded-2xl hover:bg-indigo-100 hover:text-indigo-700 transition-all active:scale-95 border border-slate-200 shadow-sm" title="Upload image"><ImageIcon className="w-6 h-6" /></button>
+               <button onClick={startCamera} className="p-4 bg-slate-50 text-slate-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all active:scale-90 border border-slate-100 shadow-sm" title="Capture Problem"><Camera className="w-6 h-6" /></button>
+               <button onClick={() => fileInputRef.current?.click()} className="p-4 bg-slate-50 text-slate-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all active:scale-90 border border-slate-100 shadow-sm" title="Upload Evidence"><ImageIcon className="w-6 h-6" /></button>
             </div>
             <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
 
-            <button onClick={isRecording ? stopRecording : startRecording} className={`p-4 rounded-2xl transition-all shadow-md active:scale-95 border ${isRecording ? 'bg-red-600 border-red-700 text-white animate-pulse' : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-indigo-100'}`}>
+            <button onClick={isRecording ? stopRecording : startRecording} className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 border ${isRecording ? 'bg-red-600 border-red-700 text-white animate-pulse' : 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600'}`}>
               {isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
             </button>
             
@@ -372,41 +383,50 @@ const App: React.FC = () => {
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !state.isLoading) { e.preventDefault(); handleSend(); } }}
-                placeholder={state.isDeepDive ? "Ask about the intuition..." : "Speak or type your logic..."}
-                className={`w-full p-4 pr-14 border rounded-2xl focus:outline-none focus:ring-2 transition-all resize-none shadow-sm min-h-[60px] max-h-[200px] text-[15px] font-medium leading-relaxed ${state.isDeepDive ? 'bg-purple-50 border-purple-200 focus:ring-purple-600' : 'bg-slate-50 border-slate-200 focus:bg-white focus:ring-indigo-600'}`}
+                placeholder={state.isDeepDive ? "Ask about the intuition..." : "Speak your logic here..."}
+                className={`w-full p-5 pr-16 border rounded-[2rem] focus:outline-none focus:ring-4 transition-all resize-none shadow-inner min-h-[64px] max-h-[200px] text-base font-medium leading-relaxed ${state.isDeepDive ? 'bg-purple-50/50 border-purple-200 focus:ring-purple-200' : 'bg-slate-50 border-slate-100 focus:bg-white focus:ring-indigo-100'}`}
                 disabled={state.isLoading}
               />
               <button 
                 onClick={() => handleSend()}
                 disabled={state.isLoading || (!inputText.trim() && !imagePreview)}
-                className={`absolute right-2 bottom-2 p-3 rounded-xl transition-all shadow-lg active:scale-90 ${state.isLoading || (!inputText.trim() && !imagePreview) ? 'bg-slate-100 text-slate-400' : state.isDeepDive ? 'bg-purple-700 text-white hover:bg-purple-800' : 'bg-indigo-700 text-white hover:bg-indigo-800'}`}
+                className={`absolute right-3 bottom-3 p-3.5 rounded-2xl transition-all shadow-xl active:scale-90 ${state.isLoading || (!inputText.trim() && !imagePreview) ? 'bg-slate-100 text-slate-300' : state.isDeepDive ? 'bg-purple-700 text-white hover:bg-purple-800' : 'bg-slate-900 text-white hover:bg-indigo-700'}`}
               ><Send className="w-5 h-5" /></button>
             </div>
           </div>
-          <div className="text-[9px] text-center text-slate-400 font-black uppercase tracking-widest flex items-center justify-center gap-1.5 pb-2">
-            <Heart className="w-3 h-3 text-red-400" /> Socratic discovery is a journey, not a race.
+          <div className="flex items-center justify-center gap-2 text-[10px] text-slate-400 font-black uppercase tracking-widest pb-2">
+            <Heart className="w-3.5 h-3.5 text-red-400 fill-red-400/20" />
+            <span>Learning is a journey of discovery, not a race.</span>
           </div>
         </footer>
       </div>
 
-      {/* Camera Modal Overlay */}
+      {/* Camera Fullscreen Overlay */}
       {isCameraOpen && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="relative w-full max-w-lg aspect-[3/4] rounded-3xl overflow-hidden bg-slate-900 shadow-2xl border border-white/10">
-            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+        <div className="fixed inset-0 z-[100] bg-slate-950/95 flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
+          <div className="relative w-full max-w-2xl aspect-[4/3] rounded-[3rem] overflow-hidden bg-black shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-white/10">
+            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover grayscale-[20%]" />
             <canvas ref={canvasRef} className="hidden" />
             
-            <div className="absolute inset-0 border-[40px] border-black/40 pointer-events-none">
-               <div className="w-full h-full border-2 border-dashed border-white/50 rounded-2xl" />
+            <div className="absolute inset-0 border-[60px] border-black/60 pointer-events-none">
+               <div className="w-full h-full border-2 border-dashed border-white/30 rounded-[2rem] flex items-center justify-center">
+                  <div className="w-24 h-24 border-t-2 border-l-2 border-white/40 absolute top-4 left-4 rounded-tl-xl" />
+                  <div className="w-24 h-24 border-t-2 border-r-2 border-white/40 absolute top-4 right-4 rounded-tr-xl" />
+                  <div className="w-24 h-24 border-b-2 border-l-2 border-white/40 absolute bottom-4 left-4 rounded-bl-xl" />
+                  <div className="w-24 h-24 border-b-2 border-r-2 border-white/40 absolute bottom-4 right-4 rounded-br-xl" />
+               </div>
             </div>
             
-            <div className="absolute bottom-10 left-0 right-0 flex justify-center items-center gap-8">
-              <button onClick={stopCamera} className="p-4 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-all active:scale-90"><X className="w-8 h-8" /></button>
-              <button onClick={capturePhoto} className="p-6 bg-white rounded-full text-indigo-700 shadow-xl active:scale-95 hover:scale-105 transition-all"><Camera className="w-10 h-10" /></button>
-              <div className="w-16" /> {/* Spacer */}
+            <div className="absolute bottom-12 left-0 right-0 flex justify-center items-center gap-12">
+              <button onClick={stopCamera} className="p-5 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-xl transition-all active:scale-90 border border-white/10"><X className="w-8 h-8" /></button>
+              <div className="relative">
+                <div className="absolute inset-0 bg-white/20 rounded-full animate-ping" />
+                <button onClick={capturePhoto} className="relative p-8 bg-white rounded-full text-slate-900 shadow-2xl active:scale-95 hover:scale-105 transition-all"><Camera className="w-12 h-12" /></button>
+              </div>
+              <div className="w-16" />
             </div>
             
-            <p className="absolute top-10 w-full text-center text-white/70 text-xs font-black uppercase tracking-widest px-10">Align your homework within the frame</p>
+            <p className="absolute top-12 w-full text-center text-white/50 text-xs font-black uppercase tracking-[0.3em] px-12">Align the mathematical logic within the frame</p>
           </div>
         </div>
       )}
