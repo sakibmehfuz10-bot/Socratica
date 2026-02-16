@@ -1,0 +1,8 @@
+{
+  "name": "Socratica: Your Compassionate Math Tutor",
+  "description": "A patient, Socratic AI tutor that helps you master complex algebra and calculus through guided discovery rather than just giving answers.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
