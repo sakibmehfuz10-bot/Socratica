@@ -24,13 +24,20 @@ DEEP DIVE HANDLING:
 - If the system notes "DEEP DIVE mode", halt progress on the main problem. 
 - Focus 100% on the conceptual intuition of the specific term the student clicked until they explicitly say they are ready to move back.`;
 
-// Fix: Upgrade to gemini-3-pro-preview for complex math tutoring and reasoning tasks.
+/**
+ * Main tutoring function using gemini-3-pro-preview for complex reasoning
+ * and multimodal Socratic dialogue.
+ */
 export const getGeminiTutorResponse = async (
   history: ChatMessage[],
   isDeepDive: boolean = false
 ) => {
   try {
-    // Re-initialize to pick up any key changes
+    // Validate API Key existence before initialization
+    if (!process.env.API_KEY) {
+      throw new Error("API_KEY is not defined in environment variables.");
+    }
+
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const contents = history.map(msg => ({
@@ -48,43 +55,48 @@ export const getGeminiTutorResponse = async (
       });
     }
 
-    // Fix: Select 'gemini-3-pro-preview' for advanced math reasoning as per SDK guidelines.
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: contents,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
-        // Enabled thinking configuration to leverage the reasoning capabilities of the Pro model.
-        thinkingConfig: { thinkingBudget: 16000 },
+        temperature: 0.7,
+        topP: 0.95,
+        // Added thinkingConfig for enhanced Socratic reasoning in math
+        thinkingConfig: { thinkingBudget: 16384 }
       },
     });
 
     const text = response.text;
-    if (!text) return "API_ERROR: The logic realm is silent. Please check your connection.";
+    if (!text) {
+      return "API_ERROR: The flow of logic was interrupted. Please try rephrasing.";
+    }
+
     return text;
   } catch (error: any) {
-    console.error("Gemini API Error details:", error);
+    console.error("Gemini Tutor Error:", error);
     
-    const errorMsg = error.message || "";
-    const status = error.status || (error.error && error.error.code);
+    const errorMsg = error.message || "Unknown error";
+    
+    if (errorMsg.includes("API_KEY") || errorMsg.includes("not defined")) {
+      return "API_ERROR: Environment Variable Missing. Ensure logic source is correctly configured.";
+    }
 
-    // Handle 429 Quota errors specifically
-    if (status === 429 || errorMsg.includes("429") || errorMsg.includes("quota") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
-      return "API_ERROR: Quota exceeded. You've reached the limit for discovery today. Please check your API key or wait a moment before trying again.";
+    if (error.status === 429 || errorMsg.includes("429") || errorMsg.includes("quota")) {
+      return "API_ERROR: Discovery limit reached. Please wait a moment for the logic realm to reset.";
     }
     
-    // Handle 404/Invalid Key errors
-    if (status === 404 || errorMsg.includes("not found") || errorMsg.includes("invalid")) {
-      return "API_ERROR: Connection lost. The logic source is unavailable. Please re-select your key.";
-    }
-    
-    return "API_ERROR: Socratica is momentarily disconnected from the flow of logic.";
+    return "API_ERROR: Socratica is momentarily disconnected. Please check your logic source (API Key).";
   }
 };
 
-// Fix: Using gemini-3-flash-preview for transcription as it is a basic text-related task.
+/**
+ * Transcribes student voice questions into math-ready text.
+ */
 export const transcribeAudio = async (audioBase64: string, mimeType: string): Promise<string> => {
   try {
+    if (!process.env.API_KEY) return "";
+    
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -92,14 +104,15 @@ export const transcribeAudio = async (audioBase64: string, mimeType: string): Pr
         {
           parts: [
             { inlineData: { data: audioBase64, mimeType: mimeType } },
-            { text: "Transcribe the following math question. Convert spoken math to clear LaTeX. Return only the transcription." }
+            { text: "Accurately transcribe this math question. Convert spoken symbols to LaTeX (e.g., say 'x squared' -> '$x^2$'). Return only the transcribed text." }
           ]
         }
       ]
     });
+    
     return response.text || "";
   } catch (error) {
-    console.error("Transcription error:", error);
+    console.error("Transcription Error:", error);
     return "";
   }
 };
