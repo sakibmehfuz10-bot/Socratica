@@ -24,18 +24,23 @@ DEEP DIVE HANDLING:
 - If the system notes "DEEP DIVE mode", focus 100% on the conceptual intuition of the specific term clicked.`;
 
 /**
- * Main tutoring function using gemini-3-pro-preview for complex reasoning tasks.
+ * Main tutoring function using gemini-3-flash-preview.
+ * Switched from Pro to Flash to provide higher RPM and resolve 429 errors on Vercel free tier.
  */
 export const getGeminiTutorResponse = async (
   history: ChatMessage[],
   isDeepDive: boolean = false
 ) => {
   try {
-    // Always initialize right before the call with process.env.API_KEY as per guidelines.
+    const MODEL_NAME = 'gemini-3-flash-preview';
+    console.log(`Using Model: ${MODEL_NAME}`);
+    
+    // Initializing with the system-required process.env.API_KEY.
+    // The vite.config.ts maps VITE_GEMINI_API_KEY to this variable.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    // OPTIMIZATION: Only send the last 10 messages to save tokens and stay within quota.
-    const optimizedHistory = history.slice(-10);
+    // Optimization: history windowing
+    const optimizedHistory = history.slice(-8);
 
     const contents = optimizedHistory.map(msg => ({
       role: msg.sender === Sender.USER ? 'user' : 'model',
@@ -59,15 +64,17 @@ export const getGeminiTutorResponse = async (
       });
     }
 
-    // Using gemini-3-pro-preview for complex reasoning tasks like math tutoring.
-    // Removed safetySettings and used standard config structure to comply with coding guidelines.
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: MODEL_NAME,
       contents: contents,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         temperature: 0.7,
         topP: 0.95,
+        // Limiting output to save quota as requested.
+        // We set thinkingBudget to 0 to prioritize speed and standard output for the Flash model.
+        maxOutputTokens: 1000,
+        thinkingConfig: { thinkingBudget: 0 }
       },
     });
 
@@ -80,37 +87,35 @@ export const getGeminiTutorResponse = async (
     const msg = error.message || "";
     const status = error.status || 0;
     
-    // SPECIFIC ERROR HANDLING: Handle 429 Quota Exceeded and Entity Not Found issues.
     if (status === 429 || msg.includes("429") || msg.includes("quota")) {
-      return "API_ERROR: The logic gate is momentarily busy. Please wait 30 seconds and try again.";
-    }
-
-    if (msg.includes("Requested entity was not found")) {
-      return "API_ERROR: Logic source or model unavailable. Please re-select your logic source via the key icon.";
+      return "API_ERROR: The logic gate is momentarily saturated. Since we are using Flash, this usually clears in 10-20 seconds. Please try again shortly.";
     }
 
     if (!process.env.API_KEY) {
-      return "API_ERROR: Logic Source Connection missing. Please connect your API key via the key icon in the header.";
+      return "API_ERROR: Logic Source Connection missing. Please ensure VITE_GEMINI_API_KEY is set in your Vercel Environment Variables.";
     }
     
-    return "API_ERROR: Socratica is momentarily disconnected. Please check your logic source connection.";
+    return `API_ERROR: Socratica is momentarily disconnected (${status}). Please check your connection.`;
   }
 };
 
 /**
- * Transcribes student's audio queries into LaTeX text using gemini-3-flash-preview.
+ * Transcribes student's audio queries using the faster Flash model.
  */
 export const transcribeAudio = async (audioBase64: string, mimeType: string): Promise<string> => {
   try {
-    // Direct initialization with the API key as required.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { mimeType: mimeType, data: audioBase64 } },
-          { text: "Transcribe this math question accurately into text with LaTeX symbols." }
+          { text: "Transcribe this math question accurately into text with LaTeX symbols. Only return the transcription." }
         ]
+      },
+      config: {
+        maxOutputTokens: 500,
+        temperature: 0.1 // Lower temperature for more accurate transcription
       }
     });
     return response.text || "";
