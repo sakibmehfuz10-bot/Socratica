@@ -29,20 +29,18 @@ export interface TutorState {
 
 /**
  * Interface for the AI Studio environment API.
+ * Fix: Moved to declare global to resolve collision between local and global interface types.
  */
-export interface AIStudio {
-  hasSelectedApiKey: () => Promise<boolean>;
-  openSelectKey: () => Promise<void>;
-}
-
-// Global declaration for the aistudio environment API
 declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+
   interface Window {
-    // Fixed: Inline the interface to avoid "Subsequent property declarations must have the same type" errors
-    // when aistudio is already defined in the global environment with the same name.
-    aistudio?: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
-    };
+    /**
+     * Environment API for API key selection.
+     */
+    aistudio?: AIStudio;
   }
 }
