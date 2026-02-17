@@ -17,6 +17,17 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       sourcemap: false,
       minify: 'esbuild',
+      // Increase the chunk size warning limit to 2000kb as requested
+      chunkSizeWarningLimit: 2000,
+      rollupOptions: {
+        output: {
+          // Manual chunking helps split large libraries into their own files
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'lucide-react'],
+            math: ['mathjs', 'katex', 'react-markdown', 'remark-math', 'rehype-katex'],
+          },
+        },
+      },
     },
     server: {
       port: 3000,
