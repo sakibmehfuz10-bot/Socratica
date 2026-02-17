@@ -24,19 +24,22 @@ DEEP DIVE HANDLING:
 - If the system notes "DEEP DIVE mode", focus 100% on the conceptual intuition of the specific term clicked.`;
 
 /**
- * Main tutoring function using gemini-3-pro-preview for high-performance Socratic dialogue.
- * The API key is obtained exclusively via process.env.API_KEY.
+ * Main tutoring function using gemini-3-pro-preview.
+ * Optimized for complex math reasoning and high-quality Socratic dialogue.
  */
 export const getGeminiTutorResponse = async (
   history: ChatMessage[],
   isDeepDive: boolean = false
 ) => {
   try {
-    // Fix: Create a new instance right before making an API call to ensure it uses the latest API key.
-    // Use process.env.API_KEY directly as per guidelines.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Creating GoogleGenAI instance right before the call to ensure fresh configuration from environment.
+    const apiKey = process.env.API_KEY || "";
+    const ai = new GoogleGenAI({ apiKey });
 
-    const contents = history.map(msg => ({
+    // OPTIMIZATION: Only send the last 10 messages of history to save tokens and stay within context limits.
+    const optimizedHistory = history.slice(-10);
+
+    const contents = optimizedHistory.map(msg => ({
       role: msg.sender === Sender.USER ? 'user' : 'model',
       parts: msg.parts.map(p => {
         if (p.inlineData) return { inlineData: p.inlineData };
@@ -51,10 +54,17 @@ export const getGeminiTutorResponse = async (
       });
     }
 
-    // Fix: Use gemini-3-pro-preview for complex math and STEM reasoning tasks.
+    // Upgraded to gemini-3-pro-preview for complex math tasks as per engineering guidelines.
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: contents,
+      // safetySettings is a direct property of GenerateContentParameters.
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+      ],
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         temperature: 0.7,
@@ -62,21 +72,22 @@ export const getGeminiTutorResponse = async (
       },
     });
 
-    // Fix: Directly access the .text property (not a method).
     const text = response.text;
     if (!text) throw new Error("EMPTY_RESPONSE");
 
     return text;
   } catch (error: any) {
     console.error("Socratica Error:", error);
+    const msg = error.message || "";
     
-    // Graceful error handling for common API issues.
-    if (error.status === 429) {
-      return "API_ERROR: The logic gateway is congested (Quota Exceeded). Please wait a moment.";
+    // SPECIFIC ERROR HANDLING: Catch 429 Quota Exceeded and environment issues.
+    if (error.status === 429 || msg.includes("429") || msg.includes("quota")) {
+      return "API_ERROR: The logic gate is momentarily busy. Please wait 30 seconds and try again.";
     }
 
-    if (error.status === 404 && error.message?.includes("Requested entity was not found")) {
-      return "API_ERROR: The logic source project was not found. Please re-select your API key.";
+    // Guidance for users when the key selection is lost or invalid.
+    if (msg.includes("Requested entity was not found") || msg.includes("API key")) {
+      return "API_ERROR: Logic source synchronization lost. Please re-select your logic source via the key icon at the top.";
     }
     
     return "API_ERROR: Socratica is momentarily disconnected. Please check your logic source connection.";
@@ -84,14 +95,14 @@ export const getGeminiTutorResponse = async (
 };
 
 /**
- * Transcribes student's audio queries into LaTeX-enriched text using gemini-3-pro-preview.
+ * Transcribes student's audio queries using gemini-3-flash-preview for efficiency.
  */
 export const transcribeAudio = async (audioBase64: string, mimeType: string): Promise<string> => {
   try {
-    // Fix: Initialize GoogleGenAI right before the API call.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Initializing directly before making an API call to ensure use of the most up-to-date key.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: [
         {
           parts: [
@@ -101,7 +112,6 @@ export const transcribeAudio = async (audioBase64: string, mimeType: string): Pr
         }
       ]
     });
-    // Fix: Access .text property directly.
     return response.text || "";
   } catch (error) {
     console.error("Transcription Failed:", error);
